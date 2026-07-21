@@ -85,6 +85,12 @@ async function buildContext(pi: ExtensionAPI, ctx: ExtensionContext): Promise<Se
 export default function tabGroupsExtension(pi: ExtensionAPI) {
   const configErrors: Error[] = [];
   const config = loadConfig(undefined, (error) => configErrors.push(error));
+  let currentSessionId = "";
+  const bus = new PiIntercomExtensionBus(pi.events, () => currentSessionId);
+  // Register during extension initialization so pi-intercom can advertise this
+  // capability in its initial broker handshake. session_start is too late and
+  // creates a race between extension handlers.
+  bus.start();
   let runtime: TabGroupRuntime | undefined;
   let semanticCoordinator: SemanticCoordinator | undefined;
   let synopsisGenerator: SemanticSynopsisGenerator | undefined;
@@ -117,7 +123,7 @@ export default function tabGroupsExtension(pi: ExtensionAPI) {
   pi.on("session_start", async (_event, ctx) => {
     for (const error of configErrors) ctx.ui.notify(error.message, "warning");
     const sessionId = ctx.sessionManager.getSessionId();
-    const bus = new PiIntercomExtensionBus(pi.events, () => sessionId);
+    currentSessionId = sessionId;
     const stateStore = new PiSessionStateStore(pi, ctx);
     const reportError = (error: unknown) => ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
     runtime = new TabGroupRuntime(
