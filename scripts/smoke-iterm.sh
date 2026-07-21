@@ -140,5 +140,7 @@ for session_id in "${session_ids[@]}"; do
 done
 sleep 3
 wait_for_group_titles
+write_session "${session_ids[0]}" "/tab-group refresh --all"
+wait_for_group_titles
 
-echo "PASS: three iTerm tabs coordinated on '${group}'."
+echo "PASS: three iTerm tabs coordinated on '${group}' and completed a fleet refresh."

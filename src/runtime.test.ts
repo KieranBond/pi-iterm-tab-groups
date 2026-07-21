@@ -106,6 +106,24 @@ describe("tab group runtime", () => {
     expect(latest(bus, "context_card").card.synopsis).toBeUndefined();
   });
 
+  it("requests a fleet-wide refresh through intercom", async () => {
+    const bus = new FakeIntercomExtensionBus("self", "owner");
+    const runtime = new TabGroupRuntime(
+      "self",
+      bus,
+      new FakeStateStore(),
+      async () => ({ sessionId: "self", ticketIds: [] }),
+      { output: new Output(), environment: new Environment(), title: new Titles() },
+    );
+    await runtime.start();
+    bus.publishedMessages.length = 0;
+    await runtime.refreshAll();
+    expect(bus.publishedMessages).toContainEqual({
+      message: { type: "refresh_fleet" },
+      options: { audience: "owner" },
+    });
+  });
+
   it("resets colour when disabled and on shutdown", async () => {
     const bus = new FakeIntercomExtensionBus("self", "self");
     const output = new Output();

@@ -133,6 +133,11 @@ export class TabGroupRuntime {
     await this.refresh();
   }
 
+  async refreshAll(): Promise<void> {
+    if (!this.started || !this.state.enabled) return;
+    this.coordinator.requestFleetRefresh();
+  }
+
   async refresh(): Promise<void> {
     if (!this.started || !this.state.enabled) return;
     const baseContext = await this.contextProvider();

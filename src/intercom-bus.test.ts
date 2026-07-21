@@ -115,6 +115,11 @@ describe("Pi intercom adapter", () => {
     events.registration!.onEvent({
       type: "message",
       fromSessionId: "peer",
+      payload: { type: "refresh_fleet" },
+    });
+    events.registration!.onEvent({
+      type: "message",
+      fromSessionId: "peer",
       payload: { type: "not-ours" },
     });
     events.registration!.onEvent({
@@ -133,6 +138,6 @@ describe("Pi intercom adapter", () => {
         group: { id: "bad", label: "Bad", colour: "not-hex", createdAt: 1, updatedAt: 1 },
       },
     });
-    expect(received).toEqual(["request_cards"]);
+    expect(received).toEqual(["request_cards", "refresh_fleet"]);
   });
 });

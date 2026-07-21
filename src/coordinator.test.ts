@@ -11,6 +11,28 @@ function assignments(bus: FakeIntercomExtensionBus): Extract<ExtensionMessage, {
 }
 
 describe("deterministic coordinator", () => {
+  it("routes a fleet refresh request through the owner", () => {
+    const requesterBus = new FakeIntercomExtensionBus("requester", "owner");
+    const requester = new DeterministicCoordinator(requesterBus, () => {}, () => {});
+    requester.start();
+    requester.requestFleetRefresh();
+    expect(requesterBus.publishedMessages).toContainEqual({
+      message: { type: "refresh_fleet" },
+      options: { audience: "owner" },
+    });
+
+    const ownerBus = new FakeIntercomExtensionBus("owner", "owner");
+    const refreshLocalCard = jest.fn();
+    const owner = new DeterministicCoordinator(ownerBus, () => {}, refreshLocalCard);
+    owner.start();
+    ownerBus.simulateMessage({ type: "refresh_fleet" }, "requester");
+    expect(ownerBus.publishedMessages).toContainEqual({
+      message: { type: "request_cards" },
+      options: { audience: "capable", ownerOnly: true },
+    });
+    expect(refreshLocalCard).toHaveBeenCalledTimes(1);
+  });
+
   it("groups matching tickets and broadcasts owner-only assignments", () => {
     const bus = new FakeIntercomExtensionBus("self", "self");
     const coordinator = new DeterministicCoordinator(bus, () => {}, () => {});

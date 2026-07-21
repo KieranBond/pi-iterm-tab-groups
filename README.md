@@ -28,11 +28,12 @@ Restart Pi after installation.
 /tab-group auto
 /tab-group leave
 /tab-group refresh
+/tab-group refresh --all
 /tab-group enable
 /tab-group disable
 ```
 
-`join` creates a locked manual assignment. `leave` locks the tab in an ungrouped state. `auto` removes the lock.
+`join` creates a locked manual assignment. `leave` locks the tab in an ungrouped state. `auto` removes the lock. `refresh --all` asks every enabled session to rebuild and republish its context card through the elected coordinator; unchanged semantic cards do not consume another model call.
 
 ## Grouping
 

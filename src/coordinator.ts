@@ -8,6 +8,7 @@ export class DeterministicCoordinator {
   private readonly groups = new Map<string, TabGroup>();
   private unsubscribeMessage?: () => void;
   private unsubscribeOwner?: () => void;
+  private lastFleetRefreshAt = 0;
 
   constructor(
     private readonly bus: IntercomExtensionBus,
@@ -18,10 +19,7 @@ export class DeterministicCoordinator {
   start(): void {
     this.unsubscribeMessage = this.bus.subscribe((message, fromSessionId) => this.handle(message, fromSessionId));
     this.unsubscribeOwner = this.bus.onOwnerChange(() => {
-      if (!this.bus.isOwner()) return;
-      this.cards.clear();
-      this.bus.publish({ type: "request_cards" }, { audience: "capable", ownerOnly: true });
-      this.onRequestCard();
+      if (this.bus.isOwner()) this.broadcastCardRequest(true);
     });
   }
 
@@ -34,9 +32,30 @@ export class DeterministicCoordinator {
     this.bus.publish({ type: "context_card", card }, { audience: "owner" });
   }
 
+  requestFleetRefresh(): void {
+    if (this.bus.isOwner()) {
+      this.broadcastCardRequest(true);
+      return;
+    }
+    this.bus.publish({ type: "refresh_fleet" }, { audience: "owner" });
+  }
+
+  private broadcastCardRequest(force = false): void {
+    const now = Date.now();
+    if (!force && now - this.lastFleetRefreshAt < 1_000) return;
+    this.lastFleetRefreshAt = now;
+    this.cards.clear();
+    this.bus.publish({ type: "request_cards" }, { audience: "capable", ownerOnly: true });
+    this.onRequestCard();
+  }
+
   private handle(message: ExtensionMessage, fromSessionId: string): void {
     if (message.type === "request_cards") {
       if (fromSessionId === this.bus.getOwnerId()) this.onRequestCard();
+      return;
+    }
+    if (message.type === "refresh_fleet") {
+      if (this.bus.isOwner()) this.broadcastCardRequest();
       return;
     }
     if (message.type === "assignment") {

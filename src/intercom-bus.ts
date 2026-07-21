@@ -214,7 +214,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isExtensionMessage(value: unknown): value is ExtensionMessage {
   if (!isRecord(value) || typeof value.type !== "string") return false;
-  if (value.type === "request_cards") return true;
+  if (value.type === "request_cards" || value.type === "refresh_fleet") return true;
   if (value.type === "context_card") {
     if (!isRecord(value.card)) return false;
     return typeof value.card.sessionId === "string"

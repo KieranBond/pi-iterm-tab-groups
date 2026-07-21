@@ -63,4 +63,5 @@ export interface LocalSessionState {
 export type ExtensionMessage =
   | { type: "context_card"; card: ContextCard }
   | { type: "assignment"; assignment: GroupAssignment; group?: TabGroup }
-  | { type: "request_cards" };
+  | { type: "request_cards" }
+  | { type: "refresh_fleet" };

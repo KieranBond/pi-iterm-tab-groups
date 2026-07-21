@@ -185,7 +185,7 @@ export default function tabGroupsExtension(pi: ExtensionAPI) {
   pi.registerCommand("tab-group", {
     description: "Inspect or control the iTerm tab group",
     getArgumentCompletions: (prefix: string) => {
-      const actions = ["status", "join", "auto", "leave", "refresh", "enable", "disable"];
+      const actions = ["status", "join", "auto", "leave", "refresh", "refresh-all", "enable", "disable"];
       const items = actions.filter((action) => action.startsWith(prefix)).map((action) => ({ value: action, label: action }));
       return items.length > 0 ? items : null;
     },
@@ -201,7 +201,11 @@ export default function tabGroupsExtension(pi: ExtensionAPI) {
           case "join": await runtime.join(rest.join(" ")); break;
           case "auto": await runtime.auto(); break;
           case "leave": await runtime.leave(); break;
-          case "refresh": await runtime.refresh(); break;
+          case "refresh":
+            if (rest[0] === "--all" || rest[0] === "all") await runtime.refreshAll();
+            else await runtime.refresh();
+            break;
+          case "refresh-all": await runtime.refreshAll(); break;
           case "enable": await runtime.setEnabled(true); break;
           case "disable": await runtime.setEnabled(false); break;
           default: throw new Error(`Unknown tab-group action: ${action}`);
