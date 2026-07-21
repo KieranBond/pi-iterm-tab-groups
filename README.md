@@ -58,7 +58,7 @@ Semantic grouping is optional and disabled by default. Enable it in `~/.pi/agent
 }
 ```
 
-The configured model is explicit: the extension never falls back to Pi's active model. Semantic calls run after `agent_settled`, use a five-minute cooldown, and are capped at six calls per hour by default. Manual locks, parent links, and exact ticket matches always take precedence.
+The configured model is explicit: the extension never falls back to Pi's active model. Semantic calls run after `agent_settled` with a five-minute cooldown. Each session's synopsis pass and the elected coordinator's fleet classifier are each capped at six calls per hour by default. Manual locks, parent links, and exact ticket matches always take precedence.
 
 ## Terminal behavior
 
