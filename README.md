@@ -86,3 +86,11 @@ npm test
 npm run typecheck
 npm pack --dry-run
 ```
+
+Run the live three-tab test from iTerm2 after installing the local packages:
+
+```bash
+npm run smoke:iterm
+```
+
+The test starts three temporary Pi sessions, verifies one coordinated assignment, and exits them with `/quit`. It deliberately never closes iTerm windows through AppleScript because doing so while a process is active can leave an off-screen confirmation sheet that blocks tab clicks and menu items.

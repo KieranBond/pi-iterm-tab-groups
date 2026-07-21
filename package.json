@@ -8,6 +8,7 @@
   "files": [
     "src/**/*.ts",
     "!src/**/*.test.ts",
+    "scripts/**/*.sh",
     "README.md",
     "LICENSE"
   ],
@@ -15,6 +16,7 @@
     "build": "tsc --noEmit",
     "test": "jest --runInBand",
     "typecheck": "tsc --noEmit",
+    "smoke:iterm": "bash scripts/smoke-iterm.sh",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
