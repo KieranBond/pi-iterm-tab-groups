@@ -1,0 +1,48 @@
+{
+  "name": "pi-iterm-tab-groups",
+  "version": "0.1.0",
+  "description": "Shared iTerm2 tab colours for related Pi sessions",
+  "license": "MIT",
+  "main": "src/index.ts",
+  "files": [
+    "src/**/*.ts",
+    "!src/**/*.test.ts",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "jest --runInBand",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "iterm2",
+    "tab-groups",
+    "intercom"
+  ],
+  "author": "Kieran Bond <kbond@obsidiansecurity.com>",
+  "engines": {
+    "node": ">=20"
+  },
+  "pi": {
+    "extensions": [
+      "./src/index.ts"
+    ]
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "pi-intercom": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.11.30",
+    "jest": "^29.7.0",
+    "pi-intercom": "file:../pi-intercom",
+    "ts-jest": "^29.1.2",
+    "typescript": "^5.4.3"
+  }
+}
