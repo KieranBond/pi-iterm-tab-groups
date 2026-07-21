@@ -114,7 +114,11 @@ export default function tabGroupsExtension(pi: ExtensionAPI) {
             await runtime.invalidateSemanticContext();
           }
         } catch (error) {
-          if (!semanticAbort?.signal.aborted) ctx.ui.notify(`Tab grouping semantic pass failed: ${error instanceof Error ? error.message : String(error)}`, "warning");
+          if (!semanticAbort?.signal.aborted) {
+            ctx.ui.notify(`Tab grouping semantic pass failed: ${error instanceof Error ? error.message : String(error)}`, "warning");
+            await runtime?.invalidateSemanticContext();
+            scheduleSynopsis(ctx, config.semantic.cooldownMs);
+          }
         }
       })();
     }, delayMs);

@@ -7,17 +7,48 @@ import {
 
 class Events {
   channel?: string;
+  private readonly handlers = new Map<string, Set<(payload: unknown) => void>>();
   registration?: {
     onReady(channel: IntercomExtensionChannel): void;
     onEvent(event: IntercomExtensionEvent): void;
   };
   emit(channel: string, payload: unknown): void {
     this.channel = channel;
-    this.registration = payload as typeof this.registration;
+    for (const handler of this.handlers.get(channel) ?? []) handler(payload);
+    if (channel === INTERCOM_EXTENSION_REGISTER_EVENT) this.registration = payload as typeof this.registration;
+  }
+  on(channel: string, handler: (payload: unknown) => void): () => void {
+    const handlers = this.handlers.get(channel) ?? new Set<(payload: unknown) => void>();
+    handlers.add(handler);
+    this.handlers.set(channel, handlers);
+    return () => handlers.delete(handler);
   }
 }
 
 describe("Pi intercom adapter", () => {
+  it("re-registers when pi-intercom announces readiness after load-order loss", () => {
+    const events = new Events();
+    const bus = new PiIntercomExtensionBus(events, () => "self");
+    bus.start();
+    events.registration = undefined;
+    events.emit("intercom:extension-registry-ready", { version: 1 });
+    expect(events.registration).toBeDefined();
+    bus.stop();
+  });
+
+  it("retries a registration that was emitted before pi-intercom listened", () => {
+    jest.useFakeTimers();
+    const events = new Events();
+    const bus = new PiIntercomExtensionBus(events, () => "self");
+    bus.start();
+    const first = events.registration;
+    jest.advanceTimersByTime(250);
+    expect(events.registration).toBeDefined();
+    expect(events.registration).not.toBe(first);
+    bus.stop();
+    jest.useRealTimers();
+  });
+
   it("registers the namespace, queues until connected, and tracks ownership", () => {
     const events = new Events();
     const published: unknown[] = [];

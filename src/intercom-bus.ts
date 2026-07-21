@@ -1,6 +1,7 @@
 import { NAMESPACE, type ExtensionMessage } from "./types";
 
 export const INTERCOM_EXTENSION_REGISTER_EVENT = "intercom:extension-register";
+export const INTERCOM_EXTENSION_REGISTRY_READY_EVENT = "intercom:extension-registry-ready";
 
 interface IntercomExtensionOwner {
   sessionId: string;
@@ -50,6 +51,7 @@ export interface IntercomExtensionBus {
 
 interface PiEvents {
   emit(channel: string, payload: unknown): unknown;
+  on(channel: string, handler: (payload: unknown) => void): () => void;
 }
 
 export class PiIntercomExtensionBus implements IntercomExtensionBus {
@@ -62,6 +64,9 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
   private readonly ownerHandlers = new Set<(ownerId: string | null) => void>();
   private readonly stateHandlers = new Set<(state: ExtensionStateSnapshot) => void>();
   private state?: ExtensionStateSnapshot;
+  private unsubscribeReady?: () => void;
+  private registrationTimer?: ReturnType<typeof setInterval>;
+  private registrationAttempts = 0;
   private started = false;
 
   constructor(
@@ -72,11 +77,31 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
   start(): void {
     if (this.started) return;
     this.started = true;
+    this.unsubscribeReady = this.events.on(INTERCOM_EXTENSION_REGISTRY_READY_EVENT, () => {
+      if (!this.channel) this.registerWithIntercom();
+    });
+    this.registerWithIntercom();
+    if (!this.channel) {
+      this.registrationTimer = setInterval(() => {
+        if (this.channel || this.registrationAttempts >= 20) {
+          if (this.registrationTimer) clearInterval(this.registrationTimer);
+          this.registrationTimer = undefined;
+          return;
+        }
+        this.registerWithIntercom();
+      }, 250);
+    }
+  }
+
+  private registerWithIntercom(): void {
+    this.registrationAttempts += 1;
     this.events.emit(INTERCOM_EXTENSION_REGISTER_EVENT, {
       namespace: NAMESPACE,
       ownerEligible: true,
       onReady: (channel: IntercomExtensionChannel) => {
         this.channel = channel;
+        if (this.registrationTimer) clearInterval(this.registrationTimer);
+        this.registrationTimer = undefined;
         const snapshot = channel.snapshot();
         this.connected = snapshot.connected;
         this.supported = snapshot.supported;
@@ -89,6 +114,10 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
   }
 
   stop(): void {
+    this.unsubscribeReady?.();
+    this.unsubscribeReady = undefined;
+    if (this.registrationTimer) clearInterval(this.registrationTimer);
+    this.registrationTimer = undefined;
     this.started = false;
     this.connected = false;
     this.ownerId = null;
