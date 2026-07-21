@@ -1,6 +1,9 @@
-import type { IntercomExtensionChannel, IntercomExtensionEvent } from "pi-intercom/extension-api";
-import { INTERCOM_EXTENSION_REGISTER_EVENT } from "pi-intercom/extension-api";
-import { PiIntercomExtensionBus } from "./intercom-bus";
+import {
+  INTERCOM_EXTENSION_REGISTER_EVENT,
+  PiIntercomExtensionBus,
+  type IntercomExtensionChannel,
+  type IntercomExtensionEvent,
+} from "./intercom-bus";
 
 class Events {
   channel?: string;
@@ -23,7 +26,6 @@ describe("Pi intercom adapter", () => {
       snapshot: () => ({ connected: false, supported: false }),
       publish: (payload) => published.push(payload),
       commitState: () => {},
-      listSessions: async () => [],
     };
     const bus = new PiIntercomExtensionBus(events, () => "self");
     bus.start();
@@ -52,7 +54,6 @@ describe("Pi intercom adapter", () => {
       snapshot: () => ({ connected: true, supported: true, owner: { sessionId: "self", epoch: "one" }, state: { revision: 2, payload: { ok: true } } }),
       publish: () => {},
       commitState: (payload, revision) => commits.push({ payload, revision }),
-      listSessions: async () => [],
     });
     expect(bus.getState()).toEqual({ revision: 2, payload: { ok: true } });
     expect(states).toEqual([2]);
@@ -74,7 +75,6 @@ describe("Pi intercom adapter", () => {
       snapshot: () => ({ connected: true, supported: true }),
       publish: () => {},
       commitState: () => {},
-      listSessions: async () => [],
     });
     events.registration!.onEvent({
       type: "message",

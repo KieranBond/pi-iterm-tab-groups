@@ -1,9 +1,33 @@
-import {
-  INTERCOM_EXTENSION_REGISTER_EVENT,
-  type IntercomExtensionChannel,
-  type IntercomExtensionEvent,
-} from "pi-intercom/extension-api";
 import { NAMESPACE, type ExtensionMessage } from "./types";
+
+export const INTERCOM_EXTENSION_REGISTER_EVENT = "intercom:extension-register";
+
+interface IntercomExtensionOwner {
+  sessionId: string;
+  epoch: string;
+}
+
+export interface IntercomExtensionChannel {
+  readonly namespace: string;
+  snapshot(): {
+    connected: boolean;
+    supported: boolean;
+    owner?: IntercomExtensionOwner;
+    state?: ExtensionStateSnapshot;
+  };
+  publish(payload: unknown, options?: { audience?: "owner" | "capable"; ownerOnly?: boolean }): void;
+  commitState(payload: unknown, expectedRevision?: number): void;
+}
+
+export type IntercomExtensionEvent =
+  | { type: "connection"; connected: boolean; supported: boolean }
+  | { type: "owner"; owner?: IntercomExtensionOwner }
+  | { type: "message"; fromSessionId: string; payload: unknown }
+  | { type: "state"; state: ExtensionStateSnapshot }
+  | { type: "state_result"; committed: boolean; revision: number; reason?: string }
+  | { type: "session_joined"; session: unknown }
+  | { type: "session_left"; sessionId: string }
+  | { type: "presence_update"; session: unknown };
 
 export interface ExtensionStateSnapshot {
   revision: number;
