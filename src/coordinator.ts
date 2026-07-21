@@ -46,7 +46,7 @@ export class DeterministicCoordinator {
       this.onAssignment(message.assignment, message.group);
       return;
     }
-    if (!this.bus.isOwner()) return;
+    if (!this.bus.isOwner() || fromSessionId !== message.card.sessionId) return;
 
     this.cards.set(message.card.sessionId, message.card);
     if (message.card.sticky) {
@@ -119,11 +119,14 @@ export class DeterministicCoordinator {
     }
 
     if (card.sticky) {
+      const origin = card.sticky.assignment.reasonCode.startsWith("sticky_")
+        ? card.sticky.assignment.reasonCode.slice("sticky_".length)
+        : card.sticky.assignment.source;
       return this.result(
         card,
         card.sticky.assignment.groupId,
         "sticky",
-        `sticky_${card.sticky.assignment.source}`,
+        `sticky_${origin}`,
         card.sticky.group,
       );
     }

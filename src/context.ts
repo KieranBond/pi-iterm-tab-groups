@@ -10,6 +10,8 @@ export interface SessionContext {
   ticketIds?: string[];
   parentSessionId?: string;
   parentRunId?: string;
+  synopsis?: string;
+  domainNouns?: string[];
 }
 
 function clean(value: string | undefined, max = 120): string | undefined {
@@ -33,6 +35,9 @@ export function generateContextCard(
   const branch = clean(context.branch, 160);
   const parentSessionId = clean(context.parentSessionId, 160);
   const parentRunId = clean(context.parentRunId, 160);
+  const synopsis = clean(context.synopsis, 280);
+  const domainNouns = [...new Set((context.domainNouns ?? []).map((noun) => clean(noun, 40)).filter((noun): noun is string => !!noun))]
+    .slice(0, 8);
   const card: ContextCard = {
     sessionId: context.sessionId,
     revision: previousRevision + 1,
@@ -47,6 +52,8 @@ export function generateContextCard(
     ...(parentRunId ? { parentRunId } : {}),
     ...(manualLock ? { manualLock } : {}),
     ...(sticky ? { sticky } : {}),
+    ...(synopsis ? { synopsis } : {}),
+    ...(domainNouns.length ? { domainNouns } : {}),
   };
   card.cardHash = computeCardHash(card);
   return card;
@@ -91,5 +98,7 @@ function computeCardHash(card: ContextCard): string {
     parentRunId: card.parentRunId,
     manualLock: card.manualLock,
     sticky: card.sticky,
+    synopsis: card.synopsis,
+    domainNouns: card.domainNouns,
   }));
 }

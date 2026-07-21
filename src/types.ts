@@ -13,6 +13,8 @@ export interface TabGroup {
   id: string;
   label: string;
   colour: string;
+  description?: string;
+  status?: "provisional" | "established" | "archived";
   createdAt: number;
   updatedAt: number;
 }
@@ -47,6 +49,8 @@ export interface ContextCard {
   parentRunId?: string;
   manualLock?: ManualLock;
   sticky?: StoredAssignment;
+  synopsis?: string;
+  domainNouns?: string[];
   updatedAt: number;
 }
 

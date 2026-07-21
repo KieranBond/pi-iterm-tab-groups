@@ -34,9 +34,9 @@ Restart Pi after installation.
 
 `join` creates a locked manual assignment. `leave` locks the tab in an ungrouped state. `auto` removes the lock.
 
-## Deterministic grouping
+## Grouping
 
-The first release uses these signals, in order:
+Deterministic signals run first, in this order:
 
 1. Manual lock
 2. Parent Pi session or shared subagent run
@@ -44,9 +44,21 @@ The first release uses these signals, in order:
 4. Last assignment
 5. Unassigned
 
-Repository identity travels as a weak hint but does not group tabs by itself. Two sessions in one repository can work on unrelated tasks.
+Repository identity is only a weak hint. Two sessions in one repository can work on unrelated tasks.
 
-Semantic grouping will arrive in a later release after the deterministic workflow passes multi-tab testing.
+Semantic grouping is optional and disabled by default. Enable it in `~/.pi/agent/iterm-tab-groups/config.json`:
+
+```json
+{
+  "semantic": {
+    "enabled": true,
+    "provider": "anthropic",
+    "model": "claude-haiku-4-5"
+  }
+}
+```
+
+The configured model is explicit: the extension never falls back to Pi's active model. Semantic calls run after `agent_settled`, use a five-minute cooldown, and are capped at six calls per hour by default. Manual locks, parent links, and exact ticket matches always take precedence.
 
 ## Terminal behavior
 
@@ -62,7 +74,9 @@ Normal shutdown resets the tab colour. A forced process kill can leave the colou
 
 ## Privacy
 
-Context cards contain bounded metadata only: session ID/name, branch, hashed Git remote, ticket IDs, parent IDs, and manual state. They never contain prompts, assistant output, tool output, or file content.
+Context cards contain bounded metadata: session ID/name, branch, hashed Git remote, ticket IDs, parent IDs, manual state, and—when semantics are enabled—a short generated synopsis with domain nouns. The intercom bus and broker state never receive or persist raw prompts, transcripts, assistant output, tool output, file content, or raw model responses. Generated synopsis text is bounded, screened for verbatim prompt reuse and common secret/path patterns, then shared with the other local sessions.
+
+Synopsis generation sends only the three most recent direct user prompts, bounded to 6,000 characters total, to the configured provider. Classification receives synopsis cards and group metadata only. Semantic grouping stays off unless you enable it.
 
 ## Development
 

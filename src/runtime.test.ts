@@ -77,6 +77,35 @@ describe("tab group runtime", () => {
     expect(output.writes).toHaveLength(before);
   });
 
+  it("clears stale semantic style and assignment when a changed prompt is deferred", async () => {
+    const bus = new FakeIntercomExtensionBus("self", "self");
+    const store = new FakeStateStore();
+    const output = new Output();
+    const runtime = new TabGroupRuntime(
+      "self",
+      bus,
+      store,
+      async () => ({ sessionId: "self", ticketIds: [] }),
+      { output, environment: new Environment(), title: new Titles() },
+    );
+    await runtime.start();
+    await runtime.setSemanticContext("Old product goal", ["old"]);
+    await runtime.applyAssignment({
+      sessionId: "self",
+      groupId: "old",
+      source: "semantic",
+      reasonCode: "semantic_new",
+      confidenceBand: "high",
+      updatedAt: 1,
+    }, { id: "old", label: "Old", colour: "5B9BD5", createdAt: 1, updatedAt: 1 });
+
+    await runtime.invalidateSemanticContext();
+
+    expect((await store.get())?.lastAssignment).toBeUndefined();
+    expect(output.writes.at(-1)).toBe("\x1b]1337;SetColors=tab=default\x1b\\");
+    expect(latest(bus, "context_card").card.synopsis).toBeUndefined();
+  });
+
   it("resets colour when disabled and on shutdown", async () => {
     const bus = new FakeIntercomExtensionBus("self", "self");
     const output = new Output();

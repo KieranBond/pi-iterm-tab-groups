@@ -5,12 +5,20 @@ import {
 } from "pi-intercom/extension-api";
 import { NAMESPACE, type ExtensionMessage } from "./types";
 
+export interface ExtensionStateSnapshot {
+  revision: number;
+  payload: unknown;
+}
+
 export interface IntercomExtensionBus {
   start(): void;
   stop(): void;
   publish(message: ExtensionMessage, options?: { audience?: "owner" | "capable"; ownerOnly?: boolean }): void;
   subscribe(handler: (message: ExtensionMessage, fromSessionId: string) => void): () => void;
   onOwnerChange(handler: (ownerId: string | null) => void): () => void;
+  subscribeState(handler: (state: ExtensionStateSnapshot) => void): () => void;
+  getState(): ExtensionStateSnapshot | undefined;
+  commitState(payload: unknown, expectedRevision?: number): void;
   isOwner(): boolean;
   getOwnerId(): string | null;
   isSupported(): boolean;
@@ -28,6 +36,8 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
   private readonly pending: Array<{ message: ExtensionMessage; options?: { audience?: "owner" | "capable"; ownerOnly?: boolean } }> = [];
   private readonly handlers = new Set<(message: ExtensionMessage, fromSessionId: string) => void>();
   private readonly ownerHandlers = new Set<(ownerId: string | null) => void>();
+  private readonly stateHandlers = new Set<(state: ExtensionStateSnapshot) => void>();
+  private state?: ExtensionStateSnapshot;
   private started = false;
 
   constructor(
@@ -47,6 +57,7 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
         this.connected = snapshot.connected;
         this.supported = snapshot.supported;
         this.setOwner(snapshot.owner?.sessionId ?? null);
+        if (snapshot.state) this.setState(snapshot.state);
         this.flush();
       },
       onEvent: (event: IntercomExtensionEvent) => this.handleEvent(event),
@@ -78,6 +89,20 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
     return () => this.ownerHandlers.delete(handler);
   }
 
+  subscribeState(handler: (state: ExtensionStateSnapshot) => void): () => void {
+    this.stateHandlers.add(handler);
+    return () => this.stateHandlers.delete(handler);
+  }
+
+  getState(): ExtensionStateSnapshot | undefined {
+    return this.state;
+  }
+
+  commitState(payload: unknown, expectedRevision?: number): void {
+    if (!this.channel || !this.connected || !this.supported || !this.isOwner()) return;
+    this.channel.commitState(payload, expectedRevision);
+  }
+
   isOwner(): boolean {
     return this.ownerId === this.currentSessionId();
   }
@@ -105,7 +130,15 @@ export class PiIntercomExtensionBus implements IntercomExtensionBus {
           for (const handler of this.handlers) handler(event.payload, event.fromSessionId);
         }
         break;
+      case "state":
+        this.setState(event.state);
+        break;
     }
+  }
+
+  private setState(state: ExtensionStateSnapshot): void {
+    this.state = state;
+    for (const handler of this.stateHandlers) handler(state);
   }
 
   private setOwner(ownerId: string | null): void {
@@ -136,6 +169,9 @@ function isExtensionMessage(value: unknown): value is ExtensionMessage {
       && typeof value.card.cardHash === "string"
       && Array.isArray(value.card.ticketIds)
       && value.card.ticketIds.every((ticket) => typeof ticket === "string")
+      && (value.card.synopsis === undefined || typeof value.card.synopsis === "string")
+      && (value.card.domainNouns === undefined || (Array.isArray(value.card.domainNouns)
+        && value.card.domainNouns.every((noun) => typeof noun === "string")))
       && typeof value.card.updatedAt === "number";
   }
   if (value.type === "assignment") {
@@ -153,6 +189,8 @@ function isExtensionMessage(value: unknown): value is ExtensionMessage {
       && typeof value.group.label === "string"
       && typeof value.group.colour === "string"
       && /^[0-9A-F]{6}$/.test(value.group.colour)
+      && (value.group.description === undefined || typeof value.group.description === "string")
+      && (value.group.status === undefined || ["provisional", "established", "archived"].includes(String(value.group.status)))
       && typeof value.group.createdAt === "number"
       && typeof value.group.updatedAt === "number";
   }
@@ -162,7 +200,9 @@ function isExtensionMessage(value: unknown): value is ExtensionMessage {
 export class FakeIntercomExtensionBus implements IntercomExtensionBus {
   private handlers = new Set<(message: ExtensionMessage, fromSessionId: string) => void>();
   private ownerHandlers = new Set<(ownerId: string | null) => void>();
+  private stateHandlers = new Set<(state: ExtensionStateSnapshot) => void>();
   private ownerId: string | null;
+  private state?: ExtensionStateSnapshot;
   readonly publishedMessages: Array<{
     message: ExtensionMessage;
     options?: { audience?: "owner" | "capable"; ownerOnly?: boolean };
@@ -184,6 +224,18 @@ export class FakeIntercomExtensionBus implements IntercomExtensionBus {
   onOwnerChange(handler: (ownerId: string | null) => void): () => void {
     this.ownerHandlers.add(handler);
     return () => this.ownerHandlers.delete(handler);
+  }
+  subscribeState(handler: (state: ExtensionStateSnapshot) => void): () => void {
+    this.stateHandlers.add(handler);
+    return () => this.stateHandlers.delete(handler);
+  }
+  getState(): ExtensionStateSnapshot | undefined { return this.state; }
+  commitState(payload: unknown, expectedRevision?: number): void {
+    if (!this.isOwner()) return;
+    const currentRevision = this.state?.revision ?? 0;
+    if (expectedRevision !== undefined && expectedRevision !== currentRevision) return;
+    this.state = { revision: currentRevision + 1, payload };
+    for (const handler of this.stateHandlers) handler(this.state);
   }
   isOwner(): boolean { return this.ownerId === this.sessionId; }
   getOwnerId(): string | null { return this.ownerId; }

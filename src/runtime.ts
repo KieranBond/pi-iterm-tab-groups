@@ -19,6 +19,7 @@ export class TabGroupRuntime {
   private coordinator: DeterministicCoordinator;
   private started = false;
   private styleApplied = false;
+  private semanticContext?: { synopsis: string; domainNouns: string[] };
 
   constructor(
     private readonly sessionId: string,
@@ -112,10 +113,31 @@ export class TabGroupRuntime {
     await this.refresh();
   }
 
+  async setSemanticContext(synopsis: string, domainNouns: string[]): Promise<void> {
+    this.semanticContext = { synopsis, domainNouns };
+    await this.refresh();
+  }
+
+  async invalidateSemanticContext(): Promise<void> {
+    this.semanticContext = undefined;
+    const assignment = this.state.lastAssignment?.assignment;
+    const cameFromSemantics = assignment?.source === "semantic" || assignment?.reasonCode === "sticky_semantic";
+    if (cameFromSemantics) {
+      this.state = { ...this.state, lastAssignment: undefined };
+      await this.stateStore.set(this.state);
+      if (this.styleApplied) {
+        applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux);
+        this.styleApplied = false;
+      }
+    }
+    await this.refresh();
+  }
+
   async refresh(): Promise<void> {
     if (!this.started || !this.state.enabled) return;
-    const context = await this.contextProvider();
-    if (context.sessionId !== this.sessionId) return;
+    const baseContext = await this.contextProvider();
+    if (baseContext.sessionId !== this.sessionId) return;
+    const context = { ...baseContext, ...this.semanticContext };
     const card = generateContextCard(
       context,
       this.state.manualLock,
@@ -124,6 +146,10 @@ export class TabGroupRuntime {
     );
     this.revision = card.revision;
     this.coordinator.publishCard(card);
+  }
+
+  async applyAssignment(assignment: GroupAssignment, group?: TabGroup): Promise<void> {
+    await this.receiveAssignment(assignment, group);
   }
 
   status(): string {

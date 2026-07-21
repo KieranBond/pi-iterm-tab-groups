@@ -40,6 +40,29 @@ describe("Pi intercom adapter", () => {
     expect(bus.isOwner()).toBe(true);
   });
 
+  it("exposes broker state and only commits while owner", () => {
+    const events = new Events();
+    const commits: unknown[] = [];
+    const bus = new PiIntercomExtensionBus(events, () => "self");
+    const states: number[] = [];
+    bus.subscribeState((state) => states.push(state.revision));
+    bus.start();
+    events.registration!.onReady({
+      namespace: "iterm-tab-groups/v1",
+      snapshot: () => ({ connected: true, supported: true, owner: { sessionId: "self", epoch: "one" }, state: { revision: 2, payload: { ok: true } } }),
+      publish: () => {},
+      commitState: (payload, revision) => commits.push({ payload, revision }),
+      listSessions: async () => [],
+    });
+    expect(bus.getState()).toEqual({ revision: 2, payload: { ok: true } });
+    expect(states).toEqual([2]);
+    bus.commitState({ next: true }, 2);
+    expect(commits).toEqual([{ payload: { next: true }, revision: 2 }]);
+    events.registration!.onEvent({ type: "owner", owner: { sessionId: "peer", epoch: "two" } });
+    bus.commitState({ ignored: true }, 2);
+    expect(commits).toHaveLength(1);
+  });
+
   it("delivers only valid tab-group payloads", () => {
     const events = new Events();
     const bus = new PiIntercomExtensionBus(events, () => "self");

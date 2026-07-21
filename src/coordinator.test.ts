@@ -59,6 +59,40 @@ describe("deterministic coordinator", () => {
     expect(result?.group?.label).toBe("Manual Area");
   });
 
+  it("preserves a semantic sticky origin across repeated refreshes", () => {
+    const bus = new FakeIntercomExtensionBus("self", "self");
+    const coordinator = new DeterministicCoordinator(bus, () => {}, () => {});
+    coordinator.start();
+    const semantic = {
+      assignment: {
+        sessionId: "self",
+        groupId: "semantic-group",
+        source: "semantic" as const,
+        reasonCode: "semantic_new",
+        confidenceBand: "high" as const,
+        updatedAt: 1,
+      },
+      group: { id: "semantic-group", label: "Semantic", colour: "5B9BD5", createdAt: 1, updatedAt: 1 },
+      appliedAt: 1,
+    };
+    bus.simulateMessage({ type: "context_card", card: generateContextCard({ sessionId: "self" }, undefined, 0, semantic) }, "self");
+    const first = assignments(bus).at(-1)!;
+    expect(first.assignment.reasonCode).toBe("sticky_semantic");
+    bus.simulateMessage({
+      type: "context_card",
+      card: generateContextCard({ sessionId: "self" }, undefined, 1, { assignment: first.assignment, group: first.group, appliedAt: 2 }),
+    }, "self");
+    expect(assignments(bus).at(-1)!.assignment.reasonCode).toBe("sticky_semantic");
+  });
+
+  it("ignores context cards that spoof another session ID", () => {
+    const bus = new FakeIntercomExtensionBus("self", "self");
+    const coordinator = new DeterministicCoordinator(bus, () => {}, () => {});
+    coordinator.start();
+    bus.simulateMessage({ type: "context_card", card: generateContextCard({ sessionId: "victim" }, { groupId: "forged", lockedAt: 1 }) }, "attacker");
+    expect(assignments(bus)).toHaveLength(0);
+  });
+
   it("ignores assignments forged by a non-owner peer", () => {
     const bus = new FakeIntercomExtensionBus("self", "owner");
     const received: string[] = [];

@@ -1,8 +1,11 @@
 import path from "node:path";
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { loadConfig } from "./config";
 import { extractTicketIds, type SessionContext } from "./context";
 import { PiIntercomExtensionBus } from "./intercom-bus";
+import { createPiSemanticModel } from "./pi-model";
 import { TabGroupRuntime } from "./runtime";
+import { SemanticCoordinator, SemanticSynopsisGenerator } from "./semantic";
 import { STATE_ENTRY_TYPE, type StateStore } from "./state";
 import { RealTerminalEnvironment, RealTerminalOutput } from "./terminal";
 import type { LocalSessionState } from "./types";
@@ -80,12 +83,43 @@ async function buildContext(pi: ExtensionAPI, ctx: ExtensionContext): Promise<Se
 }
 
 export default function tabGroupsExtension(pi: ExtensionAPI) {
+  const configErrors: Error[] = [];
+  const config = loadConfig(undefined, (error) => configErrors.push(error));
   let runtime: TabGroupRuntime | undefined;
+  let semanticCoordinator: SemanticCoordinator | undefined;
+  let synopsisGenerator: SemanticSynopsisGenerator | undefined;
+  let semanticAbort: AbortController | undefined;
+  let synopsisTimer: ReturnType<typeof setTimeout> | undefined;
+
+  const scheduleSynopsis = (ctx: ExtensionContext, delayMs: number): void => {
+    if (synopsisTimer) clearTimeout(synopsisTimer);
+    synopsisTimer = setTimeout(() => {
+      synopsisTimer = undefined;
+      void (async () => {
+        if (!runtime || !synopsisGenerator) return;
+        try {
+          const result = await synopsisGenerator.generate(directUserText(ctx), semanticAbort?.signal);
+          if (result.status === "generated") {
+            await runtime.setSemanticContext(result.summary.synopsis, result.summary.domainNouns);
+          } else if (result.status === "deferred") {
+            await runtime.invalidateSemanticContext();
+            scheduleSynopsis(ctx, result.retryAfterMs);
+          } else if (result.status === "empty") {
+            await runtime.invalidateSemanticContext();
+          }
+        } catch (error) {
+          if (!semanticAbort?.signal.aborted) ctx.ui.notify(`Tab grouping semantic pass failed: ${error instanceof Error ? error.message : String(error)}`, "warning");
+        }
+      })();
+    }, delayMs);
+  };
 
   pi.on("session_start", async (_event, ctx) => {
+    for (const error of configErrors) ctx.ui.notify(error.message, "warning");
     const sessionId = ctx.sessionManager.getSessionId();
     const bus = new PiIntercomExtensionBus(pi.events, () => sessionId);
     const stateStore = new PiSessionStateStore(pi, ctx);
+    const reportError = (error: unknown) => ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
     runtime = new TabGroupRuntime(
       sessionId,
       bus,
@@ -97,15 +131,41 @@ export default function tabGroupsExtension(pi: ExtensionAPI) {
         title: { setTitle: (title) => ctx.ui.setTitle(title) },
         forceTmux: process.env.PI_ITERM_TAB_GROUPS_FORCE_TMUX === "1",
         titleSuffix: pi.getSessionName() ?? path.basename(ctx.cwd),
-        onError: (error) => ctx.ui.notify(error instanceof Error ? error.message : String(error), "error"),
+        onError: reportError,
       },
     );
+    if (config.semantic.enabled) {
+      const model = createPiSemanticModel(ctx, config.semantic);
+      synopsisGenerator = new SemanticSynopsisGenerator(model, config.semantic);
+      semanticCoordinator = new SemanticCoordinator(
+        bus,
+        model,
+        config.semantic,
+        (assignment, group) => { void runtime?.applyAssignment(assignment, group).catch(reportError); },
+        Date.now,
+        reportError,
+      );
+      semanticCoordinator.start();
+      semanticAbort = new AbortController();
+    }
     await runtime.start();
   });
 
   pi.on("session_shutdown", async () => {
+    if (synopsisTimer) clearTimeout(synopsisTimer);
+    synopsisTimer = undefined;
+    semanticAbort?.abort();
+    semanticCoordinator?.stop();
+    semanticCoordinator = undefined;
+    synopsisGenerator = undefined;
+    semanticAbort = undefined;
     await runtime?.shutdown();
     runtime = undefined;
+  });
+
+  pi.on("agent_settled", async (_event, ctx) => {
+    if (!runtime || !synopsisGenerator) return;
+    scheduleSynopsis(ctx, config.semantic.debounceMs);
   });
 
   pi.on("session_info_changed", async () => {

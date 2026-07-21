@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Shared iTerm2 tab colours for related Pi sessions",
   "license": "MIT",
+  "type": "module",
   "main": "src/index.ts",
   "files": [
     "src/**/*.ts",
@@ -33,10 +34,12 @@
     ]
   },
   "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "pi-intercom": "*"
   },
   "devDependencies": {
+    "@earendil-works/pi-ai": "*",
     "@earendil-works/pi-coding-agent": "*",
     "@types/jest": "^29.5.12",
     "@types/node": "^20.11.30",
