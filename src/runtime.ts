@@ -73,7 +73,7 @@ export class TabGroupRuntime {
     this.coordinator.stop();
     this.bus.stop();
     if (this.styleApplied) {
-      applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux);
+      applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux, this.terminal.titleSuffix);
     } else {
       resetTabColor(this.terminal.output, this.terminal.environment, this.terminal.forceTmux);
     }
@@ -103,7 +103,7 @@ export class TabGroupRuntime {
     this.state = await setEnabled(this.stateStore, enabled);
     if (!enabled) {
       if (this.styleApplied) {
-        applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux);
+        applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux, this.terminal.titleSuffix);
       } else {
         resetTabColor(this.terminal.output, this.terminal.environment, this.terminal.forceTmux);
       }
@@ -126,7 +126,7 @@ export class TabGroupRuntime {
       this.state = { ...this.state, lastAssignment: undefined };
       await this.stateStore.set(this.state);
       if (this.styleApplied) {
-        applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux);
+        applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux, this.terminal.titleSuffix);
         this.styleApplied = false;
       }
     }
@@ -184,7 +184,7 @@ export class TabGroupRuntime {
         this.terminal.titleSuffix,
       );
     } else if (this.styleApplied) {
-      applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux);
+      applyGroupStyle(null, this.terminal.output, this.terminal.environment, this.terminal.title, this.terminal.forceTmux, this.terminal.titleSuffix);
       this.styleApplied = false;
     }
   }

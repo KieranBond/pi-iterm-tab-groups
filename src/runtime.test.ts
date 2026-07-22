@@ -81,12 +81,13 @@ describe("tab group runtime", () => {
     const bus = new FakeIntercomExtensionBus("self", "self");
     const store = new FakeStateStore();
     const output = new Output();
+    const titles = new Titles();
     const runtime = new TabGroupRuntime(
       "self",
       bus,
       store,
       async () => ({ sessionId: "self", ticketIds: [] }),
-      { output, environment: new Environment(), title: new Titles() },
+      { output, environment: new Environment(), title: titles, titleSuffix: "worker" },
     );
     await runtime.start();
     await runtime.setSemanticContext("Old product goal", ["old"]);
@@ -103,6 +104,7 @@ describe("tab group runtime", () => {
 
     expect((await store.get())?.lastAssignment).toBeUndefined();
     expect(output.writes.at(-1)).toBe("\x1b]1337;SetColors=tab=default\x1b\\");
+    expect(titles.values.at(-1)).toBe("worker");
     expect(latest(bus, "context_card").card.synopsis).toBeUndefined();
   });
 

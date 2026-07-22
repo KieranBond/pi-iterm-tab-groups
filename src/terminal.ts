@@ -176,6 +176,6 @@ export function applyGroupStyle(
   }
 
   resetTabColor(output, env, force);
-  titleSetter?.setTitle("");
+  titleSetter?.setTitle(sanitizeTitle(titleSuffix));
   return true;
 }

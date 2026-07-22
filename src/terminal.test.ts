@@ -212,6 +212,16 @@ describe("terminal", () => {
       expect(titleSetter.getLastTitle()).toBe("");
     });
 
+    it("should restore the session title when group is null", () => {
+      const env = new FakeTerminalEnvironment({ TERM_PROGRAM: "iTerm.app" }, "tui");
+      const output = new FakeTerminalOutput();
+      const titleSetter = new FakeTitleSetter();
+
+      applyGroupStyle(null, output, env, titleSetter, false, "rbac");
+
+      expect(titleSetter.getLastTitle()).toBe("rbac");
+    });
+
     it("should sanitize group label", () => {
       const env = new FakeTerminalEnvironment({ TERM_PROGRAM: "iTerm.app" }, "tui");
       const output = new FakeTerminalOutput();
